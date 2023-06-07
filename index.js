@@ -10,6 +10,12 @@ app.use(cors())
 
 console.log(process.env.DB_USER);
 
+// create jwt token
+app.post('/jwt', (req, res) => {
+  const user = req.body
+  const token = jwt.sign(user, process.env.SECRET_KEY);
+  res.send({ token })
+})
 
 // mongodb
 const { MongoClient, ServerApiVersion } = require('mongodb');
@@ -25,11 +31,11 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    
+
     await client.connect();
-    
+
     const classCollection = client.db("lingolandDb").collection("classes");
-  
+
 
 
 
@@ -38,7 +44,7 @@ async function run() {
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
-    
+
   }
 }
 run().catch(console.dir);
