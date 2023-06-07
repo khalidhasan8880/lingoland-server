@@ -35,6 +35,25 @@ async function run() {
     await client.connect();
 
     const classCollection = client.db("lingolandDb").collection("classes");
+    const userCollection = client.db("lingolandDb").collection("users");
+
+    // insert user
+    app.put('/user/:email', async(req, res)=>{
+      const email = req.params.email;
+      const user = req.body;
+
+console.log(user);
+console.log(email);
+      const query = {email:email}
+      const options = {upsert:true}
+      const updateUser = {
+        $set:user
+      }
+
+
+      const result = await userCollection.updateOne(query,updateUser, options)
+      res.send(result)
+    })
 
 
 
