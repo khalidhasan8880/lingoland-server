@@ -63,6 +63,26 @@ async function run() {
     const classCollection = client.db("lingolandDb").collection("classes");
     const userCollection = client.db("lingolandDb").collection("users");
 
+
+
+// verify admin
+    const verifyAdmin = async (req, res, next)=>{
+      const email = req?.decoded?.email
+      const user = await userCollection.findOne({email:email})
+      if (user?.role !== 'admin') {
+        res.status(401).send({error:true, message:'forbidden access'})
+      }
+      next()
+    }
+
+
+
+
+
+
+
+
+
     // save user information in database
     app.put('/users/:email', async (req, res) => {
       const email = req.params.email;
@@ -101,7 +121,7 @@ async function run() {
     })
 
 
-// update user role
+// update admin role
     app.post('/users/admin/:id', async (req, res)=>{
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
@@ -112,9 +132,22 @@ async function run() {
       const result = await userCollection.updateOne(query, updateDoc, options)
       res.send(result)
     })
-// delete user 
-    app.delete('/users/delete/:id', async (req, res)=>{
+// update instructor role
+    app.post('/users/instructor/:id', verifyJWT, verifyAdmin, async (req, res)=>{
       const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const options = {upsert:true}
+      const updateDoc = {
+        $set:{role:'instructor'}
+      }
+      const result = await userCollection.updateOne(query, updateDoc, options)
+      res.send(result)
+    })
+// delete user 
+// TODO: VERIFY ADMIN
+    app.delete('/users/delete/:id', verifyJWT, verifyAdmin, async (req, res)=>{
+      const id = req.params.id;
+      console.log(id);
      const query = {_id: new ObjectId(id)}
      const result = await userCollection.deleteOne(query)
       res.send(result)
