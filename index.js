@@ -44,7 +44,7 @@ const verifyJWT = (req, res, next) => {
 
 
 // mongodb ------------------
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.sgqndpo.mongodb.net/?retryWrites=true&w=majority`;
 
 const client = new MongoClient(uri, {
@@ -98,6 +98,19 @@ async function run() {
       const user = await userCollection.findOne(query)
       res.send({role:user?.role})
 
+    })
+
+
+// update user role
+    app.post('/users/admin/:id', async (req, res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const options = {upsert:true}
+      const updateDoc = {
+        $set:{role:'admin'}
+      }
+      const result = await userCollection.updateOne(query, updateDoc, options)
+      res.send(result)
     })
     // -user----user-----user----user-----user----user-----user----user-----user----user-----user----user----
 
