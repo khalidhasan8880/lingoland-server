@@ -174,8 +174,22 @@ async function run() {
     })
 
     // get classes
-    app.get('/classes', verifyJWT, async(req,res)=>{
-      const result = await classCollection.find().toArray()
+    app.get('/classes/:email', verifyJWT, verifyInstructor, async(req,res)=>{
+      const email = req.params.email
+      const result = await classCollection.find({email:email}).toArray()
+      res.send(result)
+    })
+
+
+    // update class 
+    
+
+    // delete classes
+    
+    app.delete('/classes/delete/:id', async (req, res)=>{
+      const id = req.params.id
+      const query = {_id: new ObjectId(id)}
+      const result = await classCollection.deleteOne(query)
       res.send(result)
     })
 
