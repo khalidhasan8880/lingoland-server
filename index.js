@@ -74,6 +74,15 @@ async function run() {
       }
       next()
     }
+// verify instructor
+    const verifyInstructor = async (req, res, next)=>{
+      const email = req?.decoded?.email
+      const user = await userCollection.findOne({email:email})
+      if (user?.role !== 'instructor') {
+        res.status(401).send({error:true, message:'forbidden access'})
+      }
+      next()
+    }
 
 
 
@@ -101,7 +110,7 @@ async function run() {
     // TODO: MAKE PRIVET
 
     // get all user 
-    app.get('/users', async (req, res) => {
+    app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray()
       res.send(result)
     })
@@ -155,7 +164,13 @@ async function run() {
     // -user----user-----user----user-----user----user-----user----user-----user----user-----user----user----
 
 
-
+    // ------instructor------instructor------instructor------instructor------instructor------instructor----
+    // insert class
+    app.post('/classes', verifyJWT, verifyInstructor, async()=>{
+      const classData = req.body
+      const result = await classCollection.insertOne(classData)
+      req.send(result)
+    })
 
 
     await client.db("admin").command({ ping: 1 });
