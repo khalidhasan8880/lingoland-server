@@ -166,12 +166,18 @@ async function run() {
 
     // ------instructor------instructor------instructor------instructor------instructor------instructor----
     // insert class
-    app.post('/classes', verifyJWT, verifyInstructor, async()=>{
+    
+    app.post('/add-class/:email', verifyJWT, verifyInstructor, async(req,res)=>{
       const classData = req.body
       const result = await classCollection.insertOne(classData)
-      req.send(result)
+      res.send(result)
     })
 
+    // get classes
+    app.get('/classes', verifyJWT, async(req,res)=>{
+      const result = await classCollection.find().toArray()
+      res.send(result)
+    })
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
