@@ -25,16 +25,16 @@ app.post('/jwt', (req, res) => {
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization
   if (!authorization) {
-      return res.status(401).send({ error: true, message: 'unauthorized access' })
+    return res.status(401).send({ error: true, message: 'unauthorized access' })
   }
 
   const token = authorization.split(' ')[1]
   jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
-      if (err) {
-          return res.status(401).send({ error: true, message: 'unauthorized access' })
-      }
-      req.decoded = decoded
-      next()
+    if (err) {
+      return res.status(401).send({ error: true, message: 'unauthorized access' })
+    }
+    req.decoded = decoded
+    next()
   })
 }
 
@@ -65,21 +65,21 @@ async function run() {
 
 
 
-// verify admin
-    const verifyAdmin = async (req, res, next)=>{
+    // verify admin
+    const verifyAdmin = async (req, res, next) => {
       const email = req?.decoded?.email
-      const user = await userCollection.findOne({email:email})
+      const user = await userCollection.findOne({ email: email })
       if (user?.role !== 'admin') {
-        res.status(401).send({error:true, message:'forbidden access'})
+        res.status(401).send({ error: true, message: 'forbidden access' })
       }
       next()
     }
-// verify instructor
-    const verifyInstructor = async (req, res, next)=>{
+    // verify instructor
+    const verifyInstructor = async (req, res, next) => {
       const email = req?.decoded?.email
-      const user = await userCollection.findOne({email:email})
+      const user = await userCollection.findOne({ email: email })
       if (user?.role !== 'instructor') {
-        res.status(401).send({error:true, message:'forbidden access'})
+        res.status(401).send({ error: true, message: 'forbidden access' })
       }
       next()
     }
@@ -116,49 +116,48 @@ async function run() {
     })
 
     // user role checking
-    app.get('/users/role/:email', verifyJWT,  async (req, res) => {
+    app.get('/users/role/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = { email: email }
       console.log('verifyEmail', req?.decoded?.email);
       console.log('req email', email);
-      if ( req?.decoded?.email !== req?.params?.email) {
-        return res.status(403).send({error:true, message:'forbidden access'})
+      if (req?.decoded?.email !== req?.params?.email) {
+        return res.status(403).send({ error: true, message: 'forbidden access' })
       }
       const user = await userCollection.findOne(query)
-      res.send({role:user?.role})
+      res.send({ role: user?.role })
 
     })
 
 
-// update admin role
-    app.post('/users/admin/:id', async (req, res)=>{
+    // update admin role
+    app.post('/users/admin/:id', async (req, res) => {
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)}
-      const options = {upsert:true}
+      const query = { _id: new ObjectId(id) }
+      const options = { upsert: true }
       const updateDoc = {
-        $set:{role:'admin'}
+        $set: { role: 'admin' }
       }
       const result = await userCollection.updateOne(query, updateDoc, options)
       res.send(result)
     })
-// update instructor role
-    app.post('/users/instructor/:id', verifyJWT, verifyAdmin, async (req, res)=>{
+    // update instructor role
+    app.post('/users/instructor/:id', verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)}
-      const options = {upsert:true}
+      const query = { _id: new ObjectId(id) }
+      const options = { upsert: true }
       const updateDoc = {
-        $set:{role:'instructor'}
+        $set: { role: 'instructor' }
       }
       const result = await userCollection.updateOne(query, updateDoc, options)
       res.send(result)
     })
-// delete user 
-// TODO: VERIFY ADMIN
-    app.delete('/users/delete/:id', verifyJWT, verifyAdmin, async (req, res)=>{
+    // delete user 
+    // TODO: VERIFY ADMIN
+    app.delete('/users/delete/:id', verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      console.log(id);
-     const query = {_id: new ObjectId(id)}
-     const result = await userCollection.deleteOne(query)
+      const query = { _id: new ObjectId(id) }
+      const result = await userCollection.deleteOne(query)
       res.send(result)
     })
     // -user----user-----user----user-----user----user-----user----user-----user----user-----user----user----
@@ -166,29 +165,48 @@ async function run() {
 
     // ------instructor------instructor------instructor------instructor------instructor------instructor----
     // insert class
-    
-    app.post('/add-class/:email', verifyJWT, verifyInstructor, async(req,res)=>{
+
+    app.post('/add-class/:email', verifyJWT, verifyInstructor, async (req, res) => {
       const classData = req.body
       const result = await classCollection.insertOne(classData)
       res.send(result)
     })
 
     // get classes
-    app.get('/classes/:email', verifyJWT, verifyInstructor, async(req,res)=>{
+    app.get('/classes/:email', verifyJWT, verifyInstructor, async (req, res) => {
       const email = req.params.email
-      const result = await classCollection.find({email:email}).toArray()
+      const result = await classCollection.find({ email: email }).toArray()
       res.send(result)
     })
 
 
     // update class 
-    
+    app.post('/classes/update/:id', async (req, res) => {
+      const id = req.params.id
+      const updatedClass = req.body
+      const options = { upsert: true }
+      const query = { _id: new ObjectId(id) }
+      const updateDoc = {
+        $set: {
+          instructorName: updatedClass?.instructorName,
+          email: updatedClass?.email,
+          price: updatedClass?.price,
+          seats: updatedClass?.seats,
+          className: updatedClass?.className,
+          phone: updatedClass?.phone,
+          photo: updatedClass?.photo,
+          status: updatedClass?.status,
+        }
+      }
+      const result = await classCollection.updateOne(query, updateDoc)
+      res.send(result)
+    })
 
     // delete classes
-    
-    app.delete('/classes/delete/:id', async (req, res)=>{
+
+    app.delete('/classes/delete/:id', async (req, res) => {
       const id = req.params.id
-      const query = {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) }
       const result = await classCollection.deleteOne(query)
       res.send(result)
     })
