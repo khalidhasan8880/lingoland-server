@@ -44,7 +44,7 @@ const verifyJWT = (req, res, next) => {
 
 
 // mongodb ------------------
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId, Admin } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.sgqndpo.mongodb.net/?retryWrites=true&w=majority`;
 
 const client = new MongoClient(uri, {
@@ -58,12 +58,17 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
 
-    await client.connect();
+    // await client.connect();
 
     const classCollection = client.db("lingolandDb").collection("classes");
+    const cartCollection = client.db("lingolandDb").collection("carts");
     const userCollection = client.db("lingolandDb").collection("users");
 
 
+    app.get('/', (req, res)=>{
+      console.log();
+      res.send('khalid')
+    })
 
     // verify admin
     const verifyAdmin = async (req, res, next) => {
@@ -160,11 +165,11 @@ async function run() {
       const result = await userCollection.deleteOne(query)
       res.send(result)
     })
-    // -user----user-----user----user-----user----user-----user----user-----user----user-----user----user----
+  
 
 
-    // ------instructor------instructor------instructor------instructor------instructor------instructor----
-    // insert class
+
+
 
     app.post('/add-class/:email', verifyJWT, verifyInstructor, async (req, res) => {
       const classData = req.body
@@ -172,10 +177,33 @@ async function run() {
       res.send(result)
     })
 
-    // get classes
+    // get classes popular 
+    app.get('/classes/popular', async (req, res) => {
+      const result = await classCollection.find({status:"approved"}).sort({enrolledStudents:1}).toArray()
+      res.send(result)
+    })
+    // get instructors classes
     app.get('/classes/:email', verifyJWT, verifyInstructor, async (req, res) => {
       const email = req.params.email
       const result = await classCollection.find({ email: email }).toArray()
+      res.send(result)
+    })
+    // get classes admin
+    app.get('/classes', verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await classCollection.find().toArray()
+      res.send(result)
+    })
+    // get classes admin
+    app.patch('/classes/approve/:id',async (req, res) => {
+      const id = req.params.id;
+      const query= {_id: new ObjectId(id)}
+      const options = {upsert:true}
+      const updateStatus = {
+        $set:{
+          status:'approved'
+        }
+      }
+      const result = await classCollection.updateOne(query, updateStatus, options)
       res.send(result)
     })
 
@@ -202,6 +230,21 @@ async function run() {
       res.send(result)
     })
 
+
+    app.patch('/classes/feedback/:id', verifyJWT, verifyAdmin, async(req,res)=>{
+      const feedback = req.body?.feedback
+      const id = req.params.id
+      const query = {_id:new ObjectId(id)}
+      const options = {upsert:true}
+      const updateDoc = {
+        $set:{
+          feedback:feedback,
+          status:'deny'
+        }
+      }
+      const result = await classCollection.updateOne(query, updateDoc, options)
+      res.send(result)
+    })
     // delete classes
 
     app.delete('/classes/delete/:id', async (req, res) => {
@@ -210,6 +253,36 @@ async function run() {
       const result = await classCollection.deleteOne(query)
       res.send(result)
     })
+
+
+// TODO: USE PUT METHOD FOR BREAK INSERT MULTIPLE OR SAME DATA
+    app.post('/carts', verifyJWT, async(req,res)=>{
+      const cart = req.body
+      console.log(cart);
+      const result = await cartCollection.insertOne(cart)
+      res.send(result)
+    })
+// GET CART BY EMAIL
+    app.get('/carts/:email', verifyJWT, async(req,res)=>{
+      const email = req.params.email;
+      const carts =  await cartCollection.find({email:email}).toArray()
+      // console.log(carts);
+      // 
+      const query = carts?.map(cart=> new ObjectId(cart?.classId))
+      const classes = await classCollection.find({ _id: { $in: query } }).toArray()
+      
+      res.send(classes)
+    })
+
+
+
+
+
+
+
+
+
+
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
