@@ -65,7 +65,7 @@ async function run() {
     const userCollection = client.db("lingolandDb").collection("users");
 
 
-    app.get('/', (req, res)=>{
+    app.get('/', (req, res) => {
       console.log();
       res.send('khalid')
     })
@@ -165,7 +165,7 @@ async function run() {
       const result = await userCollection.deleteOne(query)
       res.send(result)
     })
-  
+
 
 
 
@@ -179,7 +179,7 @@ async function run() {
 
     // get classes popular 
     app.get('/classes/popular', async (req, res) => {
-      const result = await classCollection.find({status:"approved"}).sort({enrolledStudents:1}).toArray()
+      const result = await classCollection.find({ status: "approved" }).sort({ enrolledStudents: 1 }).toArray()
       res.send(result)
     })
     // get instructors classes
@@ -194,13 +194,13 @@ async function run() {
       res.send(result)
     })
     // get classes admin
-    app.patch('/classes/approve/:id',async (req, res) => {
+    app.patch('/classes/approve/:id', async (req, res) => {
       const id = req.params.id;
-      const query= {_id: new ObjectId(id)}
-      const options = {upsert:true}
+      const query = { _id: new ObjectId(id) }
+      const options = { upsert: true }
       const updateStatus = {
-        $set:{
-          status:'approved'
+        $set: {
+          status: 'approved'
         }
       }
       const result = await classCollection.updateOne(query, updateStatus, options)
@@ -231,15 +231,15 @@ async function run() {
     })
 
 
-    app.patch('/classes/feedback/:id', verifyJWT, verifyAdmin, async(req,res)=>{
+    app.patch('/classes/feedback/:id', verifyJWT, verifyAdmin, async (req, res) => {
       const feedback = req.body?.feedback
       const id = req.params.id
-      const query = {_id:new ObjectId(id)}
-      const options = {upsert:true}
+      const query = { _id: new ObjectId(id) }
+      const options = { upsert: true }
       const updateDoc = {
-        $set:{
-          feedback:feedback,
-          status:'deny'
+        $set: {
+          feedback: feedback,
+          status: 'deny'
         }
       }
       const result = await classCollection.updateOne(query, updateDoc, options)
@@ -255,27 +255,72 @@ async function run() {
     })
 
 
-// TODO: USE PUT METHOD FOR BREAK INSERT MULTIPLE OR SAME DATA
-    app.post('/carts', verifyJWT, async(req,res)=>{
+    // TODO: USE PUT METHOD FOR BREAK INSERT MULTIPLE OR SAME DATA
+    app.post('/carts', verifyJWT, async (req, res) => {
       const cart = req.body
       console.log(cart);
       const result = await cartCollection.insertOne(cart)
       res.send(result)
     })
-// GET CART BY EMAIL
-    app.get('/carts/:email', verifyJWT, async(req,res)=>{
+    // GET CART BY EMAIL
+    app.get('/carts/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
-      const carts =  await cartCollection.find({email:email}).toArray()
+      const carts = await cartCollection.find({ email: email }).toArray()
       // console.log(carts);
       // 
-      const query = carts?.map(cart=> new ObjectId(cart?.classId))
+      const query = carts?.map(cart => new ObjectId(cart?.classId))
       const classes = await classCollection.find({ _id: { $in: query } }).toArray()
-      
+
       res.send(classes)
     })
 
+    // get instructors
+    app.get('/instructors', async (req, res) => {
+
+      const instructors = await userCollection.find({ role: 'instructor' }).toArray();
+    
+      const emails = instructors.map(user => user.email);
+      console.log(emails);
+      const classes = await classCollection.find({ email: { $in: emails } }).toArray();
+
+      console.log(classes);
+      res.send({ instructors, classes });
+
+    })
+   
+    
 
 
+    // --payment----payment----payment----payment----payment----payment----payment--
+
+    app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+      const price = req.body?.totalPrice
+      const amount = price * 100;
+      const customer = req.body
+console.log(customer);
+      console.log(price, amount);
+      const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: "inr",
+          payment_method_types: ["card"],
+          metadata: {
+              customer_name: customer?.name,
+              customer_email: customer?.email,
+          },
+          shipping: {
+              name: "khalid",
+              address: {
+                  line1: 'Ward Number 69',
+                  city: 'Kolkata',
+                  state: 'West Bengal',
+                  postal_code: '700019',
+                  country: 'India',
+              },
+          },
+      });
+
+      res.send({ clientSecret: paymentIntent.client_secret })
+  })
 
 
 
