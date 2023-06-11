@@ -260,7 +260,7 @@ async function run() {
     app.put('/carts', verifyJWT, async (req, res) => {
       const cart = req.body
       console.log(cart);
-      const options = {upsert:true}
+      const options = { upsert: true }
       const updateDoc = {
         $set: cart
       }
@@ -357,7 +357,7 @@ async function run() {
       const result = await paymentCollection.insertOne(payment)
 
       console.log(payment);
-      const query = {_Id: new ObjectId(purchasedClassId)}
+      const query = { _id: new ObjectId(purchasedClassId) }
 
       const updateDoc = {
         $inc: {
@@ -412,19 +412,36 @@ async function run() {
       res.send(result)
     })
 
-    app.delete('/delete-single-cart/:id', async(req, res)=>{
+    app.delete('/delete-single-cart/:id', async (req, res) => {
       const id = req.params.id
-      const query = {classId: id}
+      const query = { classId: id }
       const result = await cartCollection.deleteOne(query)
       res.send(result)
     })
 
+    // enrolled Classes
+    // TOTO: Use Mongodb Aggregation /////////////// 
+    app.get('/enrolled-classes/:email', async (req, res) => {
+      const email = req.params.email;
+      const enrolledClasses = await paymentCollection.find({ email: email }).toArray()
 
-    // app.get('/enrolled-classes/:email', async(req,res)=>{
-    //   const email = req.params.email;
-    //   const enrolledClasses = await paymentCollection.find({ email: email}).toArray()
-    //   console.log(enrolledClasses);
-    // })
+// nested loop
+      const enrolledClassesId = enrolledClasses.map(cls=> {
+        
+        if (Array.isArray(cls?.purchasedClassId)) {
+          return cls.map(c=> c.purchasedClassId)
+        }else{
+          return cls?.purchasedClassId
+        }
+      
+      })
+     
+      const query = enrolledClassesId?.map(id => new ObjectId(id))
+      const result = await classCollection.find({ _id: { $in: query } }).toArray()
+      console.log(query);
+      console.log(result);
+      res.send(result)
+    })
 
 
 
