@@ -62,6 +62,7 @@ async function run() {
 
     const classCollection = client.db("lingolandDb").collection("classes");
     const cartCollection = client.db("lingolandDb").collection("carts");
+    const paymentCollection = client.db("lingolandDb").collection("payments");
     const userCollection = client.db("lingolandDb").collection("users");
 
 
@@ -256,10 +257,14 @@ async function run() {
 
 
     // TODO: USE PUT METHOD FOR BREAK INSERT MULTIPLE OR SAME DATA
-    app.post('/carts', verifyJWT, async (req, res) => {
+    app.put('/carts', verifyJWT, async (req, res) => {
       const cart = req.body
       console.log(cart);
-      const result = await cartCollection.insertOne(cart)
+      const options = {upsert:true}
+      const updateDoc = {
+        $set: cart
+      }
+      const result = await cartCollection.updateOne({}, updateDoc, options)
       res.send(result)
     })
     // GET CART BY EMAIL
@@ -274,11 +279,12 @@ async function run() {
       res.send(classes)
     })
 
+
     // get instructors
     app.get('/instructors', async (req, res) => {
 
       const instructors = await userCollection.find({ role: 'instructor' }).toArray();
-    
+
       const emails = instructors.map(user => user.email);
       console.log(emails);
       const classes = await classCollection.find({ email: { $in: emails } }).toArray();
@@ -287,8 +293,8 @@ async function run() {
       res.send({ instructors, classes });
 
     })
-   
-    
+
+
 
 
     // --payment----payment----payment----payment----payment----payment----payment--
@@ -297,30 +303,133 @@ async function run() {
       const price = req.body?.totalPrice
       const amount = price * 100;
       const customer = req.body
-console.log(customer);
+
       console.log(price, amount);
       const paymentIntent = await stripe.paymentIntents.create({
-          amount: amount,
-          currency: "inr",
-          payment_method_types: ["card"],
-          metadata: {
-              customer_name: customer?.name,
-              customer_email: customer?.email,
+        amount: amount,
+        currency: "inr",
+        payment_method_types: ["card"],
+        metadata: {
+          customer_name: customer?.name,
+          customer_email: customer?.email,
+        },
+        shipping: {
+          name: "khalid",
+          address: {
+            line1: 'Ward Number 69',
+            city: 'Kolkata',
+            state: 'West Bengal',
+            postal_code: '700019',
+            country: 'India',
           },
-          shipping: {
-              name: "khalid",
-              address: {
-                  line1: 'Ward Number 69',
-                  city: 'Kolkata',
-                  state: 'West Bengal',
-                  postal_code: '700019',
-                  country: 'India',
-              },
-          },
+        },
       });
 
       res.send({ clientSecret: paymentIntent.client_secret })
-  })
+    })
+
+
+    // stored payments
+    app.post('/payments', async (req, res) => {
+      const payment = req.body;
+      const purchasedClassesId = req.body?.purchasedClassesId;
+      const result = await paymentCollection.insertOne(payment)
+
+      console.log(payment);
+      const query = purchasedClassesId?.map(id => new ObjectId(id)); // Convert ids to ObjectIds
+
+      const updateDoc = {
+        $inc: {
+          enrolledStudents: 1,
+          seats: -1
+        }
+      };
+
+      const options = { upsert: true };
+      const updateResult = await classCollection.updateMany({ _id: { $in: query } }, updateDoc, options);
+      console.log(updateResult);
+      res.send(result);
+    })
+    // stored single payment
+    app.post('/payment', async (req, res) => {
+      const payment = req.body;
+      const purchasedClassId = req.body?.purchasedClassId;
+      const result = await paymentCollection.insertOne(payment)
+
+      console.log(payment);
+      const query = {_Id: new ObjectId(purchasedClassId)}
+
+      const updateDoc = {
+        $inc: {
+          enrolledStudents: 1,
+          seats: -1
+        }
+      };
+
+      const options = { upsert: true };
+      const updateResult = await classCollection.updateOne(query, updateDoc, options);
+      console.log(updateResult);
+      res.send(result);
+    })
+
+
+
+
+    app.post('/create-intent-for-single-item', async (req, res) => {
+      const price = req.body?.price
+      const amount = price * 100;
+      const customer = req.body
+
+      console.log(price, amount);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "inr",
+        payment_method_types: ["card"],
+        metadata: {
+          customer_name: customer?.name,
+          customer_email: customer?.email,
+        },
+        shipping: {
+          name: "khalid",
+          address: {
+            line1: 'Ward Number 69',
+            city: 'Kolkata',
+            state: 'West Bengal',
+            postal_code: '700019',
+            country: 'India',
+          },
+        },
+      });
+
+      res.send({ clientSecret: paymentIntent.client_secret })
+    })
+
+    // delete carts after payment
+    app.delete('/delete/carts/:email', verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const result = await cartCollection.deleteMany({ email: email })
+      console.log(email);
+      res.send(result)
+    })
+
+    app.delete('/delete-single-cart/:id', async(req, res)=>{
+      const id = req.params.id
+      const query = {classId: id}
+      const result = await cartCollection.deleteOne(query)
+      res.send(result)
+    })
+
+
+    // app.get('/enrolled-classes/:email', async(req,res)=>{
+    //   const email = req.params.email;
+    //   const enrolledClasses = await paymentCollection.find({ email: email}).toArray()
+    //   console.log(enrolledClasses);
+    // })
+
+
+
+
+
 
 
 
