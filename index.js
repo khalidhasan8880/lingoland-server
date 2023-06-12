@@ -76,7 +76,7 @@ async function run() {
       const email = req?.decoded?.email
       const user = await userCollection.findOne({ email: email })
       if (user?.role !== 'admin') {
-        res.status(401).send({ error: true, message: 'forbidden access' })
+        return res.status(401).send({ error: true, message: 'forbidden access' })
       }
       next()
     }
@@ -85,7 +85,7 @@ async function run() {
       const email = req?.decoded?.email
       const user = await userCollection.findOne({ email: email })
       if (user?.role !== 'instructor') {
-        res.status(401).send({ error: true, message: 'forbidden access' })
+        return res.status(401).send({ error: true, message: 'forbidden access' })
       }
       next()
     }
@@ -160,7 +160,7 @@ async function run() {
     })
     // delete user 
     // TODO: VERIFY ADMIN
-    app.delete('/users/delete/:id', verifyJWT, verifyAdmin, async (req, res) => {
+    app.delete('/users/delete/:id',  async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await userCollection.deleteOne(query)
@@ -189,13 +189,22 @@ async function run() {
       const result = await classCollection.find({ email: email }).toArray()
       res.send(result)
     })
-    // get classes admin
-    app.get('/classes', verifyJWT, verifyAdmin, async (req, res) => {
-      const result = await classCollection.find().toArray()
+    // get classes
+    app.get('/classes', async (req, res) => {
+      const result = await classCollection.find({ status: "approved" }).toArray()
       res.send(result)
     })
+  
+
+      // all classes for approve admin ---  
+      app.get('/all-classes/admin',verifyJWT,verifyAdmin, async(req, res)=>{
+        const result = await classCollection.find().toArray()
+        res.send(result)
+      })
+
+
     // get classes admin
-    app.patch('/classes/approve/:id', async (req, res) => {
+    app.patch('/classes/approve/:id', verifyJWT, verifyAdmin,  async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = { upsert: true }
@@ -210,7 +219,7 @@ async function run() {
 
 
     // update class 
-    app.post('/classes/update/:id', async (req, res) => {
+    app.post('/classes/update/:id', verifyJWT, verifyInstructor, async (req, res) => {
       const id = req.params.id
       const updatedClass = req.body
       const options = { upsert: true }
@@ -248,7 +257,7 @@ async function run() {
     })
     // delete classes
 
-    app.delete('/classes/delete/:id', async (req, res) => {
+    app.delete('/classes/delete/:id', verifyJWT, verifyInstructor, async (req, res) => {
       const id = req.params.id
       const query = { _id: new ObjectId(id) }
       const result = await classCollection.deleteOne(query)
@@ -282,12 +291,11 @@ async function run() {
 
     // get instructors
     app.get('/instructors', async (req, res) => {
-
       const instructors = await userCollection.find({ role: 'instructor' }).toArray();
 
       const emails = instructors.map(user => user.email);
       console.log(emails);
-      const classes = await classCollection.find({ email: { $in: emails } }).toArray();
+      const classes = await classCollection.find({ email: { $in: emails }, status:'approved'}).toArray();
 
       console.log(classes);
       res.send({ instructors, classes });
@@ -412,7 +420,7 @@ async function run() {
       res.send(result)
     })
 
-    app.delete('/delete-single-cart/:id', async (req, res) => {
+    app.delete('/delete-single-cart/:id', verifyJWT, async (req, res) => {
       const id = req.params.id
       const query = { classId: id }
       const result = await cartCollection.deleteOne(query)
@@ -421,30 +429,32 @@ async function run() {
 
     // enrolled Classes
     // TOTO: Use Mongodb Aggregation /////////////// 
-    app.get('/enrolled-classes/:email', async (req, res) => {
+    app.get('/enrolled-classes/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
       const enrolledClasses = await paymentCollection.find({ email: email }).toArray()
 
 // nested loop
       const enrolledClassesId = enrolledClasses.map(cls=> {
-        
         if (Array.isArray(cls?.purchasedClassId)) {
           return cls.map(c=> c.purchasedClassId)
         }else{
           return cls?.purchasedClassId
         }
-      
       })
      
       const query = enrolledClassesId?.map(id => new ObjectId(id))
       const result = await classCollection.find({ _id: { $in: query } }).toArray()
-      console.log(query);
-      console.log(result);
       res.send(result)
     })
 
 
-
+// get payment history by user email
+    app.get('/payments/:email', verifyJWT, async (req, res)=> {
+      const email = req.params.email;
+      const query = {email:email}
+      const result = await paymentCollection.find({email:email}).toArray()
+      res.send(result)
+    })
 
 
 
