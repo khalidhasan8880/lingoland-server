@@ -23,6 +23,8 @@ app.post('/jwt', (req, res) => {
 
 
 const verifyJWT = (req, res, next) => {
+  // console.log(req.headers.authorization);
+
   const authorization = req.headers.authorization
   if (!authorization) {
     return res.status(401).send({ error: true, message: 'unauthorized access' })
@@ -67,7 +69,6 @@ async function run() {
 
 
     app.get('/', (req, res) => {
-      console.log();
       res.send('khalid')
     })
 
@@ -125,8 +126,6 @@ async function run() {
     app.get('/users/role/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = { email: email }
-      console.log('verifyEmail', req?.decoded?.email);
-      console.log('req email', email);
       if (req?.decoded?.email !== req?.params?.email) {
         return res.status(403).send({ error: true, message: 'forbidden access' })
       }
@@ -160,7 +159,7 @@ async function run() {
     })
     // delete user 
     // TODO: VERIFY ADMIN
-    app.delete('/users/delete/:id',  async (req, res) => {
+    app.delete('/users/delete/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await userCollection.deleteOne(query)
@@ -194,17 +193,17 @@ async function run() {
       const result = await classCollection.find({ status: "approved" }).toArray()
       res.send(result)
     })
-  
 
-      // all classes for approve admin ---  
-      app.get('/all-classes/admin',verifyJWT,verifyAdmin, async(req, res)=>{
-        const result = await classCollection.find().toArray()
-        res.send(result)
-      })
+
+    // all classes for approve admin ---  
+    app.get('/all-classes/admin', verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await classCollection.find().toArray()
+      res.send(result)
+    })
 
 
     // get classes admin
-    app.patch('/classes/approve/:id', verifyJWT, verifyAdmin,  async (req, res) => {
+    app.patch('/classes/approve/:id', verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const options = { upsert: true }
@@ -266,22 +265,24 @@ async function run() {
 
 
     // TODO: USE PUT METHOD FOR BREAK INSERT MULTIPLE OR SAME DATA
-    app.put('/carts', verifyJWT, async (req, res) => {
+    app.put('/carts/:email', verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded?.email) {
+        return res.status(401).send({error:true, message:'unauthorized'})
+      }
+      const query  = {email, classId:req.body.classId}
       const cart = req.body
-      console.log(cart);
       const options = { upsert: true }
       const updateDoc = {
         $set: cart
       }
-      const result = await cartCollection.updateOne({}, updateDoc, options)
+      const result = await cartCollection.updateOne(query, updateDoc, options)
       res.send(result)
     })
     // GET CART BY EMAIL
     app.get('/carts/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
       const carts = await cartCollection.find({ email: email }).toArray()
-      // console.log(carts);
-      // 
       const query = carts?.map(cart => new ObjectId(cart?.classId))
       const classes = await classCollection.find({ _id: { $in: query } }).toArray()
 
@@ -294,10 +295,8 @@ async function run() {
       const instructors = await userCollection.find({ role: 'instructor' }).toArray();
 
       const emails = instructors.map(user => user.email);
-      console.log(emails);
-      const classes = await classCollection.find({ email: { $in: emails }, status:'approved'}).toArray();
+      const classes = await classCollection.find({ email: { $in: emails }, status: 'approved' }).toArray();
 
-      console.log(classes);
       res.send({ instructors, classes });
 
     })
@@ -312,7 +311,6 @@ async function run() {
       const amount = price * 100;
       const customer = req.body
 
-      console.log(price, amount);
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: "inr",
@@ -343,7 +341,6 @@ async function run() {
       const purchasedClassesId = req.body?.purchasedClassesId;
       const result = await paymentCollection.insertOne(payment)
 
-      console.log(payment);
       const query = purchasedClassesId?.map(id => new ObjectId(id)); // Convert ids to ObjectIds
 
       const updateDoc = {
@@ -355,7 +352,6 @@ async function run() {
 
       const options = { upsert: true };
       const updateResult = await classCollection.updateMany({ _id: { $in: query } }, updateDoc, options);
-      console.log(updateResult);
       res.send(result);
     })
     // stored single payment
@@ -364,7 +360,6 @@ async function run() {
       const purchasedClassId = req.body?.purchasedClassId;
       const result = await paymentCollection.insertOne(payment)
 
-      console.log(payment);
       const query = { _id: new ObjectId(purchasedClassId) }
 
       const updateDoc = {
@@ -376,7 +371,6 @@ async function run() {
 
       const options = { upsert: true };
       const updateResult = await classCollection.updateOne(query, updateDoc, options);
-      console.log(updateResult);
       res.send(result);
     })
 
@@ -388,7 +382,6 @@ async function run() {
       const amount = price * 100;
       const customer = req.body
 
-      console.log(price, amount);
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: "inr",
@@ -416,13 +409,15 @@ async function run() {
     app.delete('/delete/carts/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
       const result = await cartCollection.deleteMany({ email: email })
-      console.log(email);
       res.send(result)
     })
 
-    app.delete('/delete-single-cart/:id', verifyJWT, async (req, res) => {
-      const id = req.params.id
-      const query = { classId: id }
+    app.delete('/delete-single-cart/:email', verifyJWT,  async (req, res) => {
+      const email = req.params.email;
+      const classId = req.body.classId;
+    
+     console.log(req.params.email);
+      const query = { classId: classId, email: email }
       const result = await cartCollection.deleteOne(query)
       res.send(result)
     })
@@ -433,28 +428,60 @@ async function run() {
       const email = req.params.email;
       const enrolledClasses = await paymentCollection.find({ email: email }).toArray()
 
-// nested loop
-      const enrolledClassesId = enrolledClasses.map(cls=> {
+      // nested loop
+      const enrolledClassesId = enrolledClasses.map(cls => {
         if (Array.isArray(cls?.purchasedClassId)) {
-          return cls.map(c=> c.purchasedClassId)
-        }else{
+          return cls.map(c => c.purchasedClassId)
+        } else {
           return cls?.purchasedClassId
         }
       })
-     
+
       const query = enrolledClassesId?.map(id => new ObjectId(id))
       const result = await classCollection.find({ _id: { $in: query } }).toArray()
       res.send(result)
     })
 
 
-// get payment history by user email
-    app.get('/payments/:email', verifyJWT, async (req, res)=> {
+    // get payment history by user email
+    app.get('/payments/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
-      const query = {email:email}
-      const result = await paymentCollection.find({email:email}).toArray()
+      const query = { email: email }
+      const result = await paymentCollection.find({ email: email }).toArray()
       res.send(result)
     })
+
+    // -------------------end-----------------------//
+
+
+    app.get('/data-count/:email', verifyJWT, async (req, res) => {
+      const email = req.decoded?.email;
+      const checkRole = await userCollection.findOne({ email });
+      if (email !== req.params.email) {
+        return res.status(401).send({ error: true })
+      }
+      if (checkRole?.role === 'admin') {
+        const userCount = await userCollection.estimatedDocumentCount();
+        const instructorCount = await userCollection.countDocuments({ role: 'instructor' });
+        const classesCount = await classCollection.estimatedDocumentCount();
+        const pendingClasses = await classCollection.countDocuments({ status: 'pending' });
+
+        res.send({ userCount, instructorCount, pendingClasses, classesCount });
+      } else if (checkRole?.role === 'instructor') {
+        const myClasses = await classCollection.countDocuments({ email });
+        const myApprovedClasses = await classCollection.countDocuments({ email, status: 'approved' });
+        const myPendingClasses = await classCollection.countDocuments({ email, status: 'pending' });
+        const denyClasses = await classCollection.countDocuments({ email, status: 'deny' });
+
+        res.send({ myClasses, myApprovedClasses, myPendingClasses, denyClasses });
+      } else {
+        const mySelectedClasses = await cartCollection.countDocuments({ email })
+        const myTotalNumberOfPayment = await paymentCollection.countDocuments({ email })
+        res.send({ mySelectedClasses,myTotalNumberOfPayment });
+      }
+
+    });
+
 
 
 
